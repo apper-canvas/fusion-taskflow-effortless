@@ -11,7 +11,9 @@ const TaskList = ({
   onDelete, 
   onToggleComplete,
   onCreateTask,
-  onReorder
+  onReorder,
+  onTaskClick,
+  allTasks
 }) => {
 
   const getPriorityColor = (priority) => {
@@ -31,6 +33,15 @@ const TaskList = ({
     if (isPast(date)) return { text: 'Overdue', color: 'text-red-600' }
     return { text: format(date, 'MMM dd'), color: 'text-surface-600' }
   }
+
+  const getSubtasks = (parentId) => {
+    return allTasks ? allTasks.filter(task => task.parentId === parentId) : []
+  }
+
+  const isSubtask = (task) => {
+    return task.parentId !== null && task.parentId !== undefined
+  }
+
 
   if (tasks.length === 0) {
     return (
@@ -73,7 +84,8 @@ const TaskList = ({
               {tasks.map((task, index) => {
                 const category = categories.find(c => c.id === task.categoryId)
                 const dueDateStatus = getDueDateStatus(task.dueDate)
-                
+                const subtasks = getSubtasks(task.id)
+                const taskIsSubtask = isSubtask(task)
                 return (
                   <Draggable key={task.id} draggableId={task.id} index={index}>
                     {(provided, snapshot) => (
@@ -88,8 +100,9 @@ const TaskList = ({
                           task.isCompleted ? 'opacity-60' : ''
                         } priority-${task.priority} ${
                           snapshot.isDragging ? 'drag-item-dragging shadow-lg' : ''
+                        } ${
+                          taskIsSubtask ? 'subtask-item ml-8 bg-surface-25 dark:bg-surface-750' : ''
                         }`}
-                      >
                         <div className="flex items-start space-x-3">
                           <div
                             {...provided.dragHandleProps}
@@ -113,44 +126,67 @@ const TaskList = ({
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className={`text-sm font-medium transition-all duration-200 ${
-                                  task.isCompleted 
-                                    ? 'line-through text-surface-500 dark:text-surface-400' 
-                                    : 'text-surface-900 dark:text-white'
-                                }`}>
-                                  {task.title}
-                                </h4>
+                              <div className="flex-1 cursor-pointer" onClick={() => onTaskClick && onTaskClick(task)}>
+                                <div className="flex items-center space-x-2">
+                                  {taskIsSubtask && (
+                                    <ApperIcon name="CornerDownRight" className="w-3 h-3 text-surface-400" />
+                                  )}
+                                  <h4 className={`text-sm font-medium transition-all duration-200 ${
+                                    task.isCompleted 
+                                      ? 'line-through text-surface-500 dark:text-surface-400' 
+                                      : 'text-surface-900 dark:text-white'
+                                  } ${
+                                    taskIsSubtask ? 'text-xs' : ''
+                                  }`}>
+                                    {task.title}
+                                  </h4>
+                                  {!taskIsSubtask && subtasks.length > 0 && (
+                                    <span className="text-xs text-surface-500 bg-surface-100 dark:bg-surface-700 px-2 py-1 rounded-full">
+                                      {subtasks.length} subtask{subtasks.length !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
                                 
                                 {task.description && (
                                   <p className={`text-sm mt-1 ${
                                     task.isCompleted 
                                       ? 'line-through text-surface-400 dark:text-surface-500' 
                                       : 'text-surface-600 dark:text-surface-400'
+                                  } ${
+                                    taskIsSubtask ? 'text-xs' : ''
                                   }`}>
                                     {task.description}
                                   </p>
                                 )}
 
                                 <div className="flex items-center space-x-3 mt-2">
-                                  <span className={`category-badge ${getPriorityColor(task.priority)}`}>
+                                  <span className={`category-badge ${getPriorityColor(task.priority)} ${
+                                    taskIsSubtask ? 'text-xs px-1.5 py-0.5' : ''
+                                  }`}>
                                     {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-
                                   </span>
                                   
                                   <div className="flex items-center space-x-1">
                                     <div 
-                                      className="w-2 h-2 rounded-full" 
+                                      className={`rounded-full ${
+                                        taskIsSubtask ? 'w-1.5 h-1.5' : 'w-2 h-2'
+                                      }`}
                                       style={{ backgroundColor: category?.color }}
                                     ></div>
-                                    <span className="text-xs text-surface-600 dark:text-surface-400">
+                                    <span className={`text-surface-600 dark:text-surface-400 ${
+                                      taskIsSubtask ? 'text-xs' : 'text-xs'
+                                    }`}>
                                       {category?.name}
                                     </span>
                                   </div>
 
                                   {dueDateStatus && (
-                                    <span className={`text-xs ${dueDateStatus.color}`}>
-                                      <ApperIcon name="Calendar" className="w-3 h-3 inline mr-1" />
+                                    <span className={`${
+                                      taskIsSubtask ? 'text-xs' : 'text-xs'
+                                    } ${dueDateStatus.color}`}>
+                                      <ApperIcon name="Calendar" className={`inline mr-1 ${
+                                        taskIsSubtask ? 'w-2.5 h-2.5' : 'w-3 h-3'
+                                      }`} />
                                       {dueDateStatus.text}
                                     </span>
                                   )}
@@ -164,7 +200,9 @@ const TaskList = ({
                                   onClick={() => onEdit(task)}
                                   className="p-1 text-surface-400 hover:text-primary transition-colors duration-200"
                                 >
-                                  <ApperIcon name="Edit2" className="w-4 h-4" />
+                                  <ApperIcon name="Edit2" className={`${
+                                    taskIsSubtask ? 'w-3 h-3' : 'w-4 h-4'
+                                  }`} />
                                 </motion.button>
                                 
                                 <motion.button
@@ -173,7 +211,9 @@ const TaskList = ({
                                   onClick={() => onDelete(task.id)}
                                   className="p-1 text-surface-400 hover:text-red-500 transition-colors duration-200"
                                 >
-                                  <ApperIcon name="Trash2" className="w-4 h-4" />
+                                  <ApperIcon name="Trash2" className={`${
+                                    taskIsSubtask ? 'w-3 h-3' : 'w-4 h-4'
+                                  }`} />
                                 </motion.button>
                               </div>
                             </div>

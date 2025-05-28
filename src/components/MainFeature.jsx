@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import { format, isToday, isPast } from 'date-fns'
 import ApperIcon from './ApperIcon'
+import TaskDetailPanel from './TaskDetailPanel'
+
 import TaskForm from './TaskForm'
 import TaskList from './TaskList'
 import TaskStats from './TaskStats'
@@ -21,6 +23,10 @@ const MainFeature = () => {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [viewMode, setViewMode] = useState('list') // list, board, calendar
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
+  const [parentTask, setParentTask] = useState(null)
+
   const [searchTerm, setSearchTerm] = useState('')
   
   const [formData, setFormData] = useState({
@@ -28,10 +34,9 @@ const MainFeature = () => {
     description: '',
     dueDate: '',
     priority: 'medium',
-    categoryId: '1'
+    categoryId: '1',
+    parentId: null
   })
-
-  // Load tasks from localStorage on component mount
   useEffect(() => {
     const savedTasks = localStorage.getItem('taskflow-tasks')
     if (savedTasks) {
@@ -69,18 +74,19 @@ const MainFeature = () => {
       dueDate: formData.dueDate || null,
       priority: formData.priority,
       categoryId: formData.categoryId,
+      parentId: formData.parentId || null,
       createdAt: editingTask ? editingTask.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-
     if (editingTask) {
       setTasks(tasks.map(task => task.id === editingTask.id ? taskData : task))
-      toast.success('Task updated successfully!')
+    if (editingTask) {
+      setTasks(tasks.map(task => task.id === editingTask.id ? taskData : task))
+      toast.success(parentTask ? 'Subtask updated successfully!' : 'Task updated successfully!')
     } else {
       setTasks([...tasks, taskData])
-      toast.success('Task created successfully!')
+      toast.success(parentTask ? 'Subtask created successfully!' : 'Task created successfully!')
     }
-
     resetForm()
   }
 
@@ -90,12 +96,13 @@ const MainFeature = () => {
       description: '',
       dueDate: '',
       priority: 'medium',
-      categoryId: '1'
+      categoryId: '1',
+      parentId: null
     })
     setIsFormOpen(false)
     setEditingTask(null)
+    setParentTask(null)
   }
-
   const handleEdit = (task) => {
     setEditingTask(task)
     setFormData({
@@ -103,25 +110,71 @@ const MainFeature = () => {
       description: task.description,
       dueDate: task.dueDate || '',
       priority: task.priority,
-      categoryId: task.categoryId
+      categoryId: task.categoryId,
+      parentId: task.parentId || null
     })
     setIsFormOpen(true)
   }
-
   const handleDelete = (taskId) => {
+
     setTasks(tasks.filter(task => task.id !== taskId))
     toast.success('Task deleted successfully!')
   }
 
+  const handleTaskClick = (task) => {
+    setSelectedTask(task)
+    setIsDetailPanelOpen(true)
+  }
+
+  const handleAddSubtask = (task) => {
+    setParentTask(task)
+    setFormData({
+      title: '',
+      description: '',
+      dueDate: task.dueDate || '',
+      priority: 'medium',
+      categoryId: task.categoryId,
+      parentId: task.id
+    })
+    setEditingTask(null)
+    setIsFormOpen(true)
+  }
+
+  const getSubtasks = (parentId) => {
+    return tasks.filter(task => task.parentId === parentId)
+  }
+
+
   const toggleTaskComplete = (taskId) => {
     setTasks(tasks.map(task => {
       if (task.id === taskId) {
+    // Also delete all subtasks when deleting a parent task
+    const subtaskIds = getSubtasks(taskId).map(subtask => subtask.id)
+    const allTaskIdsToDelete = [taskId, ...subtaskIds]
+    
+    setTasks(tasks.filter(task => !allTaskIdsToDelete.includes(task.id)))
+    
+    const deletedCount = allTaskIdsToDelete.length
+    if (deletedCount > 1) {
+      toast.success(`Task and ${deletedCount - 1} subtask(s) deleted successfully!`)
+    } else {
+      toast.success('Task deleted successfully!')
+    }
+    
+    // Close detail panel if deleted task was selected
+    if (selectedTask && allTaskIdsToDelete.includes(selectedTask.id)) {
+      setIsDetailPanelOpen(false)
+      setSelectedTask(null)
+    }
+  }
         const updated = { ...task, isCompleted: !task.isCompleted, updatedAt: new Date().toISOString() }
         toast.success(updated.isCompleted ? 'Task completed! 🎉' : 'Task marked as incomplete')
         return updated
       }
       return task
     }))
+  }
+
   }
 
   const handleTaskReorder = (result) => {
@@ -151,9 +204,15 @@ const MainFeature = () => {
     setFormData({
       title: '',
       description: '',
+  const handleDateClick = (date) => {
+    setParentTask(null)
+    setFormData({
+      title: '',
+      description: '',
       dueDate: format(date, 'yyyy-MM-dd'),
       priority: 'medium',
-      categoryId: '1'
+      categoryId: '1',
+      parentId: null
     })
     setEditingTask(null)
     setIsFormOpen(true)
@@ -166,9 +225,9 @@ const MainFeature = () => {
       if (activeCategory === 'completed') {
         filtered = filtered.filter(task => task.isCompleted)
       } else if (activeCategory === 'today') {
-        filtered = filtered.filter(task => task.dueDate && isToday(new Date(task.dueDate)))
+        filtered = filtered.filter(task => task.dueDate && isToday(new Date(task.dueDate)) && !task.parentId)
       } else if (activeCategory === 'overdue') {
-        filtered = filtered.filter(task => task.dueDate && isPast(new Date(task.dueDate)) && !task.isCompleted)
+        filtered = filtered.filter(task => task.dueDate && isPast(new Date(task.dueDate)) && !task.isCompleted && !task.parentId)
       } else {
         filtered = filtered.filter(task => task.categoryId === activeCategory)
       }
@@ -234,9 +293,11 @@ const MainFeature = () => {
           onToggleComplete={toggleTaskComplete}
           onCreateTask={() => setIsFormOpen(true)}
           onReorder={handleTaskReorder}
+          onTaskClick={handleTaskClick}
+          allTasks={tasks}
         />
-
       </div>
+
     )
   }
 
@@ -333,12 +394,16 @@ const MainFeature = () => {
             onClose={resetForm}
           />
         </AnimatePresence>
-
-        {/* Main Content Area */}
-        {renderMainContent()}
-      </motion.div>
-    </div>
-  )
-}
-
-export default MainFeature
+          
+          {/* Task Detail Panel */}
+          <TaskDetailPanel
+            isOpen={isDetailPanelOpen}
+            task={selectedTask}
+            subtasks={selectedTask ? getSubtasks(selectedTask.id) : []}
+            categories={categories}
+            onClose={() => setIsDetailPanelOpen(false)}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAddSubtask={handleAddSubtask}
+            onToggleComplete={toggleTaskComplete}
+          />

@@ -8,7 +8,8 @@ const TaskForm = ({
   setFormData, 
   categories, 
   onSubmit, 
-  onClose 
+  onClose,
+  parentTask
 }) => {
   if (!isOpen) return null
 
@@ -34,7 +35,7 @@ const TaskForm = ({
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-surface-900 dark:text-white">
-            {editingTask ? 'Edit Task' : 'Create New Task'}
+            {parentTask ? `Add Subtask to "${parentTask.title}"` : (editingTask ? 'Edit Task' : 'Create New Task')}
           </h3>
           <motion.button
             whileHover={{ scale: 1.1 }}

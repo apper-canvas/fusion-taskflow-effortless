@@ -103,6 +103,15 @@
   }
 
 
+  .subtask-item {
+    @apply border-l-2 border-surface-300 dark:border-surface-600 bg-gradient-to-r from-surface-25 to-transparent dark:from-surface-750 dark:to-transparent;
+  }
+  
+  .subtask-hierarchy {
+    @apply pl-6 border-l border-surface-200 dark:border-surface-700;
+  }
+
+
 }
 
 @layer utilities {
