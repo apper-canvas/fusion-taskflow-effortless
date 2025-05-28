@@ -94,6 +94,15 @@
     @apply border-l-2 border-green-500;
   }
 
+  .drag-item-dragging {
+    @apply transform scale-105 rotate-2 opacity-90;
+  }
+  
+  .drop-zone-active {
+    @apply bg-primary-50 border-2 border-dashed border-primary-300;
+  }
+
+
 }
 
 @layer utilities {

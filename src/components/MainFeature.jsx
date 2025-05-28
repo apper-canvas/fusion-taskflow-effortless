@@ -124,6 +124,29 @@ const MainFeature = () => {
     }))
   }
 
+  const handleTaskReorder = (result) => {
+    if (!result.destination) return
+
+    const filteredTasks = getFilteredTasks()
+    const reorderedTasks = Array.from(filteredTasks)
+    const [removed] = reorderedTasks.splice(result.source.index, 1)
+    reorderedTasks.splice(result.destination.index, 0, removed)
+
+    // Update task order in the main tasks array
+    const updatedTasks = tasks.map(task => {
+      const reorderedTask = reorderedTasks.find(rt => rt.id === task.id)
+      if (reorderedTask) {
+        const newIndex = reorderedTasks.findIndex(rt => rt.id === task.id)
+        return { ...task, order: newIndex, updatedAt: new Date().toISOString() }
+      }
+      return task
+    })
+
+    setTasks(updatedTasks)
+    toast.success('Tasks reordered successfully!')
+  }
+
+
   const handleDateClick = (date) => {
     setFormData({
       title: '',
@@ -159,12 +182,21 @@ const MainFeature = () => {
     }
 
     return filtered.sort((a, b) => {
+      // First sort by completion status
       if (a.isCompleted !== b.isCompleted) {
         return a.isCompleted ? 1 : -1
       }
+      
+      // Then by custom order if exists
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order
+      }
+      
+      // Finally by priority
       const priorityOrder = { high: 3, medium: 2, low: 1 }
       return priorityOrder[b.priority] - priorityOrder[a.priority]
     })
+
   }
 
   const getTaskStats = () => {
@@ -201,7 +233,9 @@ const MainFeature = () => {
           onDelete={handleDelete}
           onToggleComplete={toggleTaskComplete}
           onCreateTask={() => setIsFormOpen(true)}
+          onReorder={handleTaskReorder}
         />
+
       </div>
     )
   }
