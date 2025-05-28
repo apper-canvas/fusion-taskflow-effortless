@@ -134,7 +134,8 @@ const TaskList = ({
 
                                 <div className="flex items-center space-x-3 mt-2">
                                   <span className={`category-badge ${getPriorityColor(task.priority)}`}>
-                                    {task.priority}
+                                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+
                                   </span>
                                   
                                   <div className="flex items-center space-x-1">
